@@ -2,6 +2,7 @@ import os
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+import plotly.graph_objects as go
 
 # =========================
 # 1. 데이터 경로 설정
@@ -219,38 +220,131 @@ with tabs[0]:
     )
 
 # =====================================================
-# [TAB 2] 지역별 서비스 격차 분석
+# [TAB 2] 지역별 서비스 격차 분석 (개선 버전)
 # =====================================================
 with tabs[1]:
     st.header("📍 지역별 서비스 격차 분석")
     등록관리율 = load_csv(files["등록관리율"])
     기관현황 = load_csv(files["기관현황"])
 
-    # 등록률 상위 5개 및 하위 5개 지역 비교
-    reg_rate = 등록관리율[['지역명', '추계중증정신질환자수 대비 정신건강복지센터 등록 중증정신질환자']]
-    top_bottom = pd.concat([
-        reg_rate.sort_values(by=reg_rate.columns[1], ascending=False).head(5),
-        reg_rate.sort_values(by=reg_rate.columns[1], ascending=True).head(5)
-    ])
+    # -------------------------
+    # 2-1. 데이터 전처리
+    # -------------------------
+    reg_rate = 등록관리율[['지역명', '추계중증정신질환자수 대비 정신건강복지센터 등록 중증정신질환자']].copy()
+    reg_rate.rename(columns={reg_rate.columns[1]: '등록률'}, inplace=True)
+
+    # 상·하위 5개 지역 추출
+    top5 = reg_rate.sort_values(by='등록률', ascending=False).head(5)
+    bottom5 = reg_rate.sort_values(by='등록률', ascending=True).head(5)
+
+    # 기관 수 데이터
+    org_count = 기관현황[['지역명', '합계']].copy()
+    org_count = org_count[org_count['지역명'] != '서울시']  # 서울시 전체 합계 행 제거
+    org_count = org_count.sort_values(by='합계', ascending=False).reset_index(drop=True)
+
+    # -------------------------
+    # 2-2. KPI 카드 구성
+    # -------------------------
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        kpi_card(
+            title="🏆 등록률 1위 지역",
+            value=f"{top5.iloc[0]['지역명']} ({top5.iloc[0]['등록률']:.1f}%)",
+            description="중증정신질환자 등록률이 가장 높은 지역"
+        )
+    with col2:
+        kpi_card(
+            title="📉 등록률 최하위 지역",
+            value=f"{bottom5.iloc[0]['지역명']} ({bottom5.iloc[0]['등록률']:.1f}%)",
+            description="중증정신질환자 등록률이 가장 낮은 지역"
+        )
+    with col3:
+        kpi_card(
+            title="🏥 기관 수 최다 지역",
+            value=f"{org_count.iloc[0]['지역명']} ({org_count.iloc[0]['합계']}개)",
+            description="정신건강증진기관 수가 가장 많은 지역"
+        )
+    with col4:
+        kpi_card(
+            title="🏥 기관 수 최저 지역",
+            value=f"{org_count.iloc[-1]['지역명']} ({org_count.iloc[-1]['합계']}개)",
+            description="정신건강증진기관 수가 가장 적은 지역"
+        )
+
+    st.markdown("---")
+
+    # -------------------------
+    # 2-3. 등록률 상위·하위 5개 지역 시각화
+    # -------------------------
+    top_bottom = pd.concat([top5, bottom5])
+
     fig_reg = px.bar(
         top_bottom,
         x='지역명',
-        y=reg_rate.columns[1],
-        color=reg_rate.columns[1],
+        y='등록률',
+        color='등록률',
         color_continuous_scale='Blues',
-        title="중증정신질환자 등록률 상위·하위 5개 지역"
+        title="중증정신질환자 등록률 상위·하위 5개 지역",
+        text='등록률'  # ✅ 막대 위에 등록률 값 표시
+    )
+
+    # 텍스트 포맷 및 스타일 설정
+    fig_reg.update_traces(
+        texttemplate='%{text:.1f}%',  # 소수점 1자리 + % 표시
+        textposition='outside',  # ✅ 막대 위쪽에 레이블 표시
+    )
+
+    fig_reg.update_layout(
+        title=dict(
+            text="중증정신질환자 등록률 상위·하위 5개 지역",
+            font=dict(size=22),
+            x=0.5,  # ✅ 제목 가운데 정렬
+            xanchor='center'
+        ),
+        xaxis=dict(
+            title=dict(text="지역명", font=dict(size=16)),
+            tickfont=dict(size=12, color="#FFFFFF")
+        ),
+        yaxis=dict(
+            title=dict(text="등록률(%)", font=dict(size=16)),
+            tickfont=dict(size=12, color="#FFFFFF")
+        ),
+        plot_bgcolor="#1E1E1E",
+        paper_bgcolor="#1E1E1E",
+        font=dict(color="#FFFFFF")
     )
     st.plotly_chart(fig_reg, use_container_width=True)
 
-    # 자치구별 기관 수 비교
-    org_count = 기관현황[['지역명', '합계']].sort_values(by='합계', ascending=False)
+    # -------------------------
+    # 2-4. 자치구별 정신건강증진기관 수
+    # -------------------------
     fig_org = px.bar(
         org_count,
         x='지역명',
         y='합계',
-        title='자치구별 정신건강증진기관 수',
         color='합계',
-        color_continuous_scale='Greens'
+        color_continuous_scale='Greens',
+        title='자치구별 정신건강증진기관 수'
+    )
+    fig_org.update_layout(
+        title=dict(
+            text="자치구별 정신건강증진기관 수",
+            font=dict(size=22),
+            x=0.5,
+            xanchor="center"  # ✅ 제목 완벽 가운데 정렬
+        ),
+        title_x=0.5,  # 제목 가운데 정렬
+        xaxis=dict(
+            title=dict(text="지역명", font=dict(size=16)),
+            tickfont=dict(size=12, color="#FFFFFF")
+        ),
+        yaxis=dict(
+            title=dict(text="기관 수", font=dict(size=16)),
+            tickfont=dict(size=12, color="#FFFFFF")
+        ),
+        plot_bgcolor="#1E1E1E",
+        paper_bgcolor="#1E1E1E",
+        font=dict(color="#FFFFFF")
     )
     st.plotly_chart(fig_org, use_container_width=True)
 

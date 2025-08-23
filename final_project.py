@@ -89,18 +89,35 @@ tabs = st.tabs([
 ])
 
 # =====================================================
-# [TAB 1] 개요 탭
+# [TAB 1] 개요 탭 (개선 버전)
 # =====================================================
 with tabs[0]:
     st.header("📌 국내 정신건강 현황 개요")
-    st.markdown("서울시 및 전국 정신건강 데이터를 기반으로 핵심 지표를 요약하고, 주요 트렌드를 시각화합니다.")
 
+    # -----------------------------
+    # 1. 데이터 로드
+    # -----------------------------
     예산 = load_csv(files["예산"])
     진료정보 = load_csv(files["진료정보"])
     상병그룹 = load_csv(files["상병그룹"])
     등록관리율 = load_csv(files["등록관리율"])
 
+    # -----------------------------
+    # 2. 핵심 지표 계산
+    # -----------------------------
     try:
+        # 진료년도 전처리 (문자 → 숫자)
+        상병그룹['진료년도'] = (
+            상병그룹['진료년도']
+            .astype(str)
+            .str.replace("년", "", regex=False)
+            .astype(int)
+        )
+
+        # 기간 범위 산출
+        min_year = 상병그룹['진료년도'].min()
+        max_year = 상병그룹['진료년도'].max()
+
         total_patients = 진료정보['진료인원(명)'].sum()
         top_disease = 진료정보.groupby('주상병명')['진료인원(명)'].sum().idxmax()
         avg_reg_rate = 등록관리율['추계중증정신질환자수 대비 정신건강복지센터 등록 중증정신질환자'].mean()
@@ -109,25 +126,97 @@ with tabs[0]:
         st.error("⚠️ '개요' 탭에 필요한 컬럼명이 일치하지 않습니다.")
         st.stop()
 
-    # KPI 카드
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-    kpi1.metric("전체 진료환자 수", f"{total_patients:,.0f} 명")
-    kpi2.metric("가장 많은 진료 질환", top_disease)
-    kpi3.metric("평균 등록률", f"{avg_reg_rate:.1f}%")
-    kpi4.metric("서울시 정신건강 예산 비중", f"{mental_budget_ratio:.1f}%")
 
+    # ========================
+    # KPI 카드 커스텀 스타일
+    # ========================
+    def kpi_card(title, value, description, color="#FFFFFF"):
+        card_html = f"""
+        <div style="background-color:#1E1E1E; padding:18px; border-radius:12px; text-align:center; 
+                    box-shadow:0px 2px 8px rgba(0,0,0,0.3);">
+            <h3 style="color:{color}; font-size:22px; font-weight:700; margin-bottom:6px;">{title}</h3>
+            <p style="color:#A0A0A0; font-size:14px; margin:0 0 10px 0;">{description}</p>
+            <h2 style="color:{color}; font-size:36px; font-weight:900; margin:0;">{value}</h2>
+        </div>
+        """
+        st.markdown(card_html, unsafe_allow_html=True)
+
+    # ========================
+    # 3. KPI 카드 구성
+    # ========================
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        kpi_card(
+            title=f"👥 누적 진료 환자 수",
+            value=f"{total_patients:,.0f} 명",
+            description=f"정신질환으로 진료받은 전체 환자 수 ({min_year}~{max_year})"
+        )
+    with col2:
+        kpi_card(
+            title="🧩 가장 많은 정신 질환",
+            value=top_disease,
+            description="가장 많이 진료받은 정신 질환명"
+        )
+    with col3:
+        kpi_card(
+            title="📈 평균 등록률",
+            value=f"{avg_reg_rate:.1f}%",
+            description="중증정신질환자의 센터 등록률 평균"
+        )
+    with col4:
+        kpi_card(
+            title="💰 서울시 예산 비중",
+            value=f"{mental_budget_ratio:.1f}%",
+            description="보건 예산 대비 정신건강 예산 비중"
+        )
     st.markdown("---")
 
-    # 연도별 전체 진료 환자 수 추이
+    # -----------------------------
+    # 4. 연도별 전체 진료 환자 수 추이
+    # -----------------------------
     group_trend = 상병그룹.groupby(['진료년도'])['진료실인원(명)'].sum().reset_index()
+
     fig_trend = px.line(
         group_trend,
         x='진료년도',
         y='진료실인원(명)',
         title='연도별 전체 정신질환 진료 환자 수 추이',
-        markers=True
+        markers=True,
+        color_discrete_sequence=["#005BAC"]
+    )
+
+    # 데이터 레이블 및 스타일 강화
+    fig_trend.update_traces(
+        line=dict(width=3),
+        text=group_trend['진료실인원(명)'],
+        textposition="top center"
+    )
+    fig_trend.update_layout(
+        title={
+            'text': '연도별 전체 정신질환 진료 환자 수 추이',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': dict(size=22)
+        },
+        yaxis_title="진료 환자 수",
+        xaxis_title="연도",
+        template="plotly_white"
     )
     st.plotly_chart(fig_trend, use_container_width=True)
+
+    # -----------------------------
+    # 5. 자동 인사이트 추가
+    # -----------------------------
+    recent_years = group_trend.tail(5)
+    growth_rate = (
+        (recent_years['진료실인원(명)'].iloc[-1] - recent_years['진료실인원(명)'].iloc[0])
+        / recent_years['진료실인원(명)'].iloc[0]
+    ) * 100
+
+    st.info(
+        f"최근 5년간 전체 정신질환 진료 환자 수는 약 **{growth_rate:.1f}%** 증가했습니다. "
+        f"이는 정신건강 관리 및 예방 정책의 중요성을 시사합니다."
+    )
 
 # =====================================================
 # [TAB 2] 지역별 서비스 격차 분석

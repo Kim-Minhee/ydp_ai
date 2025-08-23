@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 # =========================
 # 1. 데이터 경로 및 로드
 # =========================
-DATA_PATH = r"cleaned"
+DATA_PATH = os.path.join(os.path.dirname(__file__), "cleaned")
 
 files = {
     "등록관리율": os.path.join(DATA_PATH, "등록관리율.csv"),
@@ -221,4 +221,5 @@ with tabs[3]:
         title='서울시민 주관적 정신건강 수준 변화'
     )
     col2.plotly_chart(fig_health, use_container_width=True)
+
 

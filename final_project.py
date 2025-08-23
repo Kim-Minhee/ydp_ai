@@ -38,12 +38,42 @@ st.set_page_config(
     layout="wide"
 )
 
+# =========================
+# 대시보드 소개 섹션
+# =========================
 st.markdown(
-    """
-    <h1 style='text-align: center; color: #005BAC;'>🧠 서울시 정신건강 데이터 대시보드</h1>
-    <p style='text-align: center; color: #6E6E6E; font-size:16px'>
-    서울시 공공데이터 기반으로 정신건강 현황과 정책 방향을 시각화합니다.
-    </p>
+    f"""
+    <div style="
+        background-color:#F5F9FF;
+        padding: 25px;
+        border-radius: 12px;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+        margin-bottom: 30px;
+    ">
+        <h2 style="text-align:center; color:#005BAC; margin-bottom:10px;">
+            🧠 서울시 정신건강 데이터 대시보드
+        </h2>
+        <p style="text-align:center; font-size:17px; color:#333333; margin-bottom:20px;">
+            서울시 공공데이터와 보건 통계를 기반으로, <b>정신건강 현황</b>을 한눈에 확인하고<br>
+            <b>지역별 서비스 격차</b> 및 <b>질환별 진료 트렌드</b>를 분석하여
+            데이터 기반 정책 의사결정을 지원합니다.
+        </p>
+        <hr style="border:1px solid #E5E5E5; margin:15px 0;">
+        <div style="display:flex; justify-content:space-around; text-align:center; margin-top:20px;">
+            <div style="flex:1; padding:10px;">
+                <h4 style="color:#005BAC;">📊 종합 현황</h4>
+                <p style="font-size:15px; color:#555;">서울시 및 전국의 진료 현황, 예산, 주요 질환 분석</p>
+            </div>
+            <div style="flex:1; padding:10px;">
+                <h4 style="color:#78BE20;">📍 지역별 격차</h4>
+                <p style="font-size:15px; color:#555;">자치구별 서비스 등록률 및 기관 현황 비교</p>
+            </div>
+            <div style="flex:1; padding:10px;">
+                <h4 style="color:#F58220;">🩺 질환 트렌드</h4>
+                <p style="font-size:15px; color:#555;">질환별 진료 인원 및 진료비 변화 분석</p>
+            </div>
+        </div>
+    </div>
     """,
     unsafe_allow_html=True
 )
@@ -184,4 +214,3 @@ with tabs[3]:
         title='서울시민 주관적 정신건강 수준 변화'
     )
     col2.plotly_chart(fig_health, use_container_width=True)
-
